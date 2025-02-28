@@ -1,5 +1,5 @@
 // Vita3K emulator project
-// Copyright (C) 2024 Vita3K team
+// Copyright (C) 2025 Vita3K team
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -131,7 +131,7 @@ bool USSETranslatorVisitor::vmad(
 
     set_repeat_multiplier(2, 2, 2, 4);
 
-    // Write mask is a 4-bit immidiate
+    // Write mask is a 4-bit immediate
     // If a bit is one, a swizzle is active
     BEGIN_REPEAT(repeat_count)
     GET_REPEAT(inst, repeat_mode);
@@ -149,9 +149,10 @@ bool USSETranslatorVisitor::vmad(
         return false;
     }
 
-    spv::Id fma_result = m_b.createBuiltinCall(m_b.getTypeId(vsrc0), std_builtins, GLSLstd450Fma, { vsrc0, vsrc1, vsrc2 });
+    auto mul_result = m_b.createBinOp(spv::OpFMul, m_b.getTypeId(vsrc0), vsrc0, vsrc1);
+    auto add_result = m_b.createBinOp(spv::OpFAdd, m_b.getTypeId(mul_result), mul_result, vsrc2);
 
-    store(inst.opr.dest, fma_result, write_mask, dest_repeat_offset);
+    store(inst.opr.dest, add_result, write_mask, dest_repeat_offset);
     END_REPEAT()
 
     reset_repeat_multiplier();
@@ -192,9 +193,9 @@ bool USSETranslatorVisitor::vmad2(
         op = Opcode::VF16MAD;
     }
 
-    const DataType inst_dt = dat_fmt ? DataType::F16 : DataType::F32;
+    const DataType inst_dt = (dat_fmt) ? DataType::F16 : DataType::F32;
 
-    // Decode mandantory info first
+    // Decode mandatory info first
     inst.opr.dest = decode_dest(inst.opr.dest, dest_n, dest_bank, false, true, 7, m_second_program);
     inst.opr.src0 = decode_src0(inst.opr.src0, src0_n, src0_bank, false, true, 7, m_second_program);
     inst.opr.src1 = decode_src12(inst.opr.src1, src1_n, src1_bank, src1_bank_ext, true, 7, m_second_program);
@@ -275,9 +276,10 @@ bool USSETranslatorVisitor::vmad2(
         return false;
     }
 
-    spv::Id fma_result = m_b.createBuiltinCall(m_b.getTypeId(vsrc0), std_builtins, GLSLstd450Fma, { vsrc0, vsrc1, vsrc2 });
+    auto mul_result = m_b.createBinOp(spv::OpFMul, m_b.getTypeId(vsrc0), vsrc0, vsrc1);
+    auto add_result = m_b.createBinOp(spv::OpFAdd, m_b.getTypeId(mul_result), mul_result, vsrc2);
 
-    store(inst.opr.dest, fma_result, dest_mask, 0);
+    store(inst.opr.dest, add_result, dest_mask, 0);
 
     return true;
 }
@@ -490,7 +492,6 @@ spv::Id USSETranslatorVisitor::do_alu_op(Instruction &inst, const Imm4 source_ma
     case Opcode::VF16DP: {
         const spv::Op op = (m_b.getNumComponents(vsrc1) > 1) ? spv::OpDot : spv::OpFMul;
         result = m_b.createBinOp(op, m_b.makeFloatType(32), vsrc1, vsrc2);
-
         result = postprocess_dot_result_for_store(m_b, result, possible_dest_mask);
         break;
     }
@@ -1674,7 +1675,7 @@ bool USSETranslatorVisitor::vdual(
     };
 
     // Each instruction might have a different source layout or write mask depending on how the instruction works.
-    // Let's store insturction information in a map so it's easy for each instruction to be loaded.
+    // Let's store instruction information in a map so it's easy for each instruction to be loaded.
     struct DualOpInfo {
         uint8_t src_count;
         bool vector_load;

@@ -1,5 +1,5 @@
 // Vita3K emulator project
-// Copyright (C) 2024 Vita3K team
+// Copyright (C) 2025 Vita3K team
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -18,10 +18,11 @@
 #pragma once
 
 #include <mem/allocator.h>
+#include <mem/functions.h>
 #include <mem/util.h>
 
-#include <array>
 #include <map>
+#include <memory>
 #include <mutex>
 
 struct AllocMemPage {
@@ -45,6 +46,7 @@ struct ProtectBlockInfo {
 struct ProtectSegmentInfo {
     std::multimap<Address, ProtectBlockInfo> blocks;
     uint32_t size = 0;
+    int32_t ref_count = 0; // When reference count is active, we don't interfere protection.
     MemPerm perm = MemPerm::None;
 
     explicit ProtectSegmentInfo() = default;

@@ -1,5 +1,5 @@
 // Vita3K emulator project
-// Copyright (C) 2024 Vita3K team
+// Copyright (C) 2025 Vita3K team
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -42,8 +42,10 @@ SinglePassScreenFilter::~SinglePassScreenFilter() {
     vk::Device device = screen.state.device;
     // this will only happen when the user changes the option in the GUI, we can afford to waitIdle
     device.waitIdle();
+    vao.destroy();
     device.destroy(pipeline);
     device.destroy(pipeline_layout);
+    device.freeDescriptorSets(descriptor_pool, descriptor_sets);
     device.destroy(descriptor_pool);
     device.destroy(descriptor_set_layout);
     device.destroy(fragment_shader);
@@ -386,6 +388,7 @@ FSRScreenFilter::~FSRScreenFilter() {
     device.destroy(pipeline_rcas);
     device.destroy(pipeline_layout_easu);
     device.destroy(pipeline_layout_rcas);
+    device.freeDescriptorSets(descriptor_pool, descriptor_sets);
     device.destroy(descriptor_pool);
     device.destroy(descriptor_set_layout);
 

@@ -1,5 +1,5 @@
 // Vita3K emulator project
-// Copyright (C) 2024 Vita3K team
+// Copyright (C) 2025 Vita3K team
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -24,11 +24,11 @@
 #include <util/string_utils.h>
 
 #include <CLI11.hpp>
-#include <vector>
 
 #include <algorithm>
 #include <exception>
 #include <iostream>
+#include <vector>
 
 namespace config {
 

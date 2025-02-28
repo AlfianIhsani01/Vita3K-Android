@@ -1,5 +1,5 @@
 // Vita3K emulator project
-// Copyright (C) 2024 Vita3K team
+// Copyright (C) 2025 Vita3K team
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -18,19 +18,13 @@
 #pragma once
 
 #include <gxm/types.h>
-#include <shader/uniform_block.h>
 #include <shader/usse_translator_types.h>
 #include <shader/usse_types.h>
 
 #include <features/state.h>
 
 #include <string>
-#include <utility>
 #include <vector>
-
-namespace spv {
-class Builder;
-}
 
 namespace shader {
 
@@ -54,7 +48,6 @@ enum struct Target {
 // or the format / number of components of the sampled images, but we can't
 struct Hints {
     // used when symbols are stripped
-    // also used when scaled attribute formats are not supported and conversion must be done in the shader
     const std::vector<SceGxmVertexAttribute> *attributes;
     // color format of the surface, used for the opengl renderer when the GPU does not support features.support_unknown_format
     // I'm asking for the format instead of the base format as the swizzle might be used in future updates for surfaces with only 1 or 2 components

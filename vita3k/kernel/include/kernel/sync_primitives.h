@@ -1,5 +1,5 @@
 // Vita3K emulator project
-// Copyright (C) 2024 Vita3K team
+// Copyright (C) 2025 Vita3K team
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -196,9 +196,7 @@ struct MsgPipe : SyncPrimitive {
     ByteRingBuffer data_buffer;
 
     bool beingDeleted = false;
-    std::atomic<std::size_t> remainingThreads = { 0 };
-
-    ~MsgPipe() override = default;
+    std::atomic<std::size_t> remainingThreads = 0;
 };
 
 typedef std::shared_ptr<MsgPipe> MsgPipePtr;

@@ -1,5 +1,5 @@
 // Vita3K emulator project
-// Copyright (C) 2024 Vita3K team
+// Copyright (C) 2025 Vita3K team
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -23,8 +23,8 @@
 #include <util/log.h>
 
 #include <fstream>
+#include <memory>
 #include <sstream>
-#include <utility>
 #include <vector>
 
 /**
@@ -37,38 +37,34 @@ UniqueGLObject gl::load_shaders(const fs::path &vertex_file_path, const fs::path
     GLuint vs = glCreateShader(GL_VERTEX_SHADER);
     GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
 
-#ifdef ANDROID
-    const std::string gl_version = "#version 300 es\nprecision highp float;\n";
-#else 
-    const std::string gl_version = "#version 410 core\n";
-#endif
-
     // Read the vertex/fragment shader code from files
     std::string vs_code;
-    {
-        const std::vector<uint8_t> vs_code_raw = fs_utils::read_asset_raw(fs::path(vertex_file_path));
-        vs_code.resize(vs_code_raw.size());
-        memcpy(vs_code.data(), vs_code_raw.data(), vs_code_raw.size());
+    fs::ifstream vs_stream(vertex_file_path, std::ios::in);
+    if (vs_stream.is_open()) {
+        std::stringstream sstr;
+        sstr << vs_stream.rdbuf();
+        vs_code = sstr.str();
+        vs_stream.close();
+    } else {
+        LOG_ERROR("Couldn't open shader: {}", vertex_file_path);
+        return UniqueGLObject();
     }
 
     std::string fs_code;
-    {
-        const std::vector<uint8_t> fs_code_raw = fs_utils::read_asset_raw(fs::path(fragment_file_path));
-        fs_code.resize(fs_code_raw.size());
-        memcpy(fs_code.data(), fs_code_raw.data(), fs_code_raw.size());
-    }
-
-    if(vs_code.empty() || fs_code.empty()){
-        LOG_ERROR("Couldn't open shader: {}", vertex_file_path);
-        return UniqueGLObject();
+    fs::ifstream fs_stream(fragment_file_path, std::ios::in);
+    if (fs_stream.is_open()) {
+        std::stringstream sstr;
+        sstr << fs_stream.rdbuf();
+        fs_code = sstr.str();
+        fs_stream.close();
     }
 
     GLint result = 0;
     int info_log_length;
 
     // Compile vertex shader
-    const char* vs_source_pointer[] = {gl_version.c_str(), vs_code.c_str()};
-    glShaderSource(vs, 2, vs_source_pointer, NULL);
+    char const *vs_source_pointer = vs_code.c_str();
+    glShaderSource(vs, 1, &vs_source_pointer, NULL);
     glCompileShader(vs);
 
     // Check vertex shader
@@ -82,8 +78,8 @@ UniqueGLObject gl::load_shaders(const fs::path &vertex_file_path, const fs::path
     }
 
     // Compile fragment shader
-    const char* fs_source_pointer[] = {gl_version.c_str(), fs_code.c_str()};
-    glShaderSource(fs, 2, fs_source_pointer, NULL);
+    char const *fs_source_pointer = fs_code.c_str();
+    glShaderSource(fs, 1, &fs_source_pointer, NULL);
     glCompileShader(fs);
 
     // Check fragment shader

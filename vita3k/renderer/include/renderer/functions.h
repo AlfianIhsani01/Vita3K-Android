@@ -1,5 +1,5 @@
 // Vita3K emulator project
-// Copyright (C) 2024 Vita3K team
+// Copyright (C) 2025 Vita3K team
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@
 struct MemState;
 struct FeatureState;
 struct Config;
+struct SDL_Window;
 
 namespace renderer {
 struct Context;
@@ -144,8 +145,6 @@ int send_single_command(State &state, Context *ctx, const CommandOpcode opcode, 
         return 0;
 }
 
-class TextureCache;
-
 namespace texture {
 
 // Paletted textures.
@@ -153,11 +152,6 @@ void palette_texture_to_rgba_4(uint32_t *dst, const uint8_t *src, uint32_t width
 void palette_texture_to_rgba_8(uint32_t *dst, const uint8_t *src, uint32_t width, uint32_t height, const uint32_t *palette);
 void yuv420_texture_to_rgb(uint8_t *dst, const uint8_t *src, uint32_t width, uint32_t height, uint32_t layout_width, uint32_t layout_height, bool is_p3);
 const uint32_t *get_texture_palette(const SceGxmTexture &texture, const MemState &mem);
-
-// Assume fmt is a bcn format
-SceGxmTextureBaseFormat get_matching_decompressed_format(SceGxmTextureBaseFormat fmt);
-
-bool is_astc_format(SceGxmTextureBaseFormat base_format);
 
 /**
  * \brief Try to resolve Z-order of block compressed texture

@@ -1,5 +1,5 @@
 // Vita3K emulator project
-// Copyright (C) 2024 Vita3K team
+// Copyright (C) 2025 Vita3K team
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -26,7 +26,6 @@ extern "C" {
 }
 
 #include <cassert>
-#include <chrono>
 
 uint64_t PlayerState::get_framerate_microseconds() {
     AVRational rational = format->streams[video_stream_id]->avg_frame_rate;

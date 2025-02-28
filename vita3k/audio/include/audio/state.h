@@ -1,5 +1,5 @@
 // Vita3K emulator project
-// Copyright (C) 2024 Vita3K team
+// Copyright (C) 2025 Vita3K team
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -41,6 +41,10 @@ struct AudioOutPort {
     float volume = 1.0f;
     // length of the buffer for each call
     int len_bytes = 0;
+    // number of microseconds a buffer lasts for
+    uint64_t len_microseconds = 0;
+    // last time sceAudioOutOutput was called with this port (timestamp in microseconds)
+    uint64_t last_output = 0;
 
     // current config
     int type = 0;

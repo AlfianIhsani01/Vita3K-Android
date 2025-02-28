@@ -1,5 +1,5 @@
 // Vita3K emulator project
-// Copyright (C) 2024 Vita3K team
+// Copyright (C) 2025 Vita3K team
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,9 +17,7 @@
 
 #include "audio/impl/cubeb_audio.h"
 
-#ifdef TRACY_ENABLE
 #include <tracy/Tracy.hpp>
-#endif
 
 #include "kernel/thread/thread_state.h"
 
@@ -83,7 +81,7 @@ CubebAudioAdapter::~CubebAudioAdapter() {
 }
 
 bool CubebAudioAdapter::init() {
-    if (cubeb_init(&cubeb_ctx, "Vita3K audio", "opensl") != CUBEB_OK) {
+    if (cubeb_init(&cubeb_ctx, "Vita3K audio", nullptr) != CUBEB_OK) {
         LOG_ERROR("Could not initialize cubeb context");
         return false;
     }
@@ -104,9 +102,7 @@ AudioOutPortPtr CubebAudioAdapter::open_port(int nb_channels, int freq, int nb_s
     };
 
     uint32_t latency;
-    if (cubeb_get_min_latency(cubeb_ctx, &port->spec, &latency) != CUBEB_OK)
-        // default value (min latency is not supported on OpenSL)
-        latency = 256;
+    cubeb_get_min_latency(cubeb_ctx, &port->spec, &latency);
 
     if (cubeb_stream_init(cubeb_ctx, &port->out_stream, "Vita3K audio out", nullptr, nullptr, nullptr,
             &port->spec, latency, impl_cubeb_audio_callback, impl_cubeb_state_callback, port.get())
@@ -121,7 +117,7 @@ AudioOutPortPtr CubebAudioAdapter::open_port(int nb_channels, int freq, int nb_s
     const int nb_buffers = (latency + nb_sample - 1) / nb_sample + 1;
     port->audio_buffers.resize(nb_buffers);
     for (AudioBuffer &audio_buffer : port->audio_buffers) {
-        // initialize all of the buffers
+        // initialize all the buffers
         audio_buffer.buffer.resize(port->len_bytes);
         audio_buffer.buffer_position = 0;
     }

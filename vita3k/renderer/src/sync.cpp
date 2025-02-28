@@ -1,5 +1,5 @@
 // Vita3K emulator project
-// Copyright (C) 2024 Vita3K team
+// Copyright (C) 2025 Vita3K team
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -16,7 +16,6 @@
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 #include <chrono>
-#include <display/functions.h>
 #include <renderer/commands.h>
 #include <renderer/driver_functions.h>
 #include <renderer/state.h>
@@ -28,7 +27,6 @@
 #include <renderer/vulkan/types.h>
 
 #include <renderer/functions.h>
-#include <util/log.h>
 #include <util/tracy.h>
 
 namespace renderer {
@@ -44,7 +42,7 @@ COMMAND(handle_signal_sync_object) {
     SceGxmSyncObject *sync = helper.pop<Ptr<SceGxmSyncObject>>().get(mem);
     const uint32_t timestamp = helper.pop<uint32_t>();
 
-    if (features.enable_memory_mapping && config.current_config.high_accuracy) {
+    if (features.support_memory_mapping && config.current_config.high_accuracy) {
         assert(renderer.current_backend == renderer::Backend::Vulkan);
         vulkan::signal_sync_object(dynamic_cast<vulkan::VKState &>(renderer), sync, timestamp);
     } else {

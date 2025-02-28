@@ -1,5 +1,5 @@
 // Vita3K emulator project
-// Copyright (C) 2024 Vita3K team
+// Copyright (C) 2025 Vita3K team
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -19,21 +19,19 @@
 #include <mem/state.h>
 
 #include <util/align.h>
-#include <util/float_to_half.h>
 #include <util/log.h>
-#include <util/float_to_half.h>
 
 #include <algorithm>
 #include <cassert>
-#include <cmath>
 #include <cstring>
+#include <mutex>
 #include <utility>
 
-#ifdef WIN32
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #else
-#include <signal.h>
+#include <csignal>
 #include <sys/mman.h>
 #include <unistd.h>
 #endif
@@ -50,7 +48,7 @@ static void register_access_violation_handler(const AccessViolationHandler &hand
 static Address alloc_inner(MemState &state, uint32_t start_page, int page_count, const char *name, const bool force);
 static void delete_memory(uint8_t *memory);
 
-#ifdef WIN32
+#ifdef _WIN32
 static std::string get_error_msg() {
     return std::system_category().message(GetLastError());
 }
@@ -61,7 +59,7 @@ static std::string get_error_msg() {
 #endif
 
 bool init(MemState &state, const bool use_page_table) {
-#ifdef WIN32
+#ifdef _WIN32
     SYSTEM_INFO system_info = {};
     GetSystemInfo(&system_info);
     state.page_size = system_info.dwPageSize;
@@ -75,7 +73,7 @@ bool init(MemState &state, const bool use_page_table) {
 
     void *preferred_address = reinterpret_cast<void *>(1ULL << 34);
 
-#ifdef WIN32
+#ifdef _WIN32
     state.memory = Memory(static_cast<uint8_t *>(VirtualAlloc(preferred_address, TOTAL_MEM_SIZE, MEM_RESERVE, PAGE_NOACCESS)), delete_memory);
     if (!state.memory) {
         // fallback
@@ -113,21 +111,14 @@ bool init(MemState &state, const bool use_page_table) {
 
     const Address null_address = alloc_inner(state, 0, 1, "null", true);
     assert(null_address == 0);
-#ifdef WIN32
+#ifdef _WIN32
     DWORD old_protect = 0;
     const BOOL ret = VirtualProtect(state.memory.get(), state.page_size, PAGE_NOACCESS, &old_protect);
     LOG_CRITICAL_IF(!ret, "VirtualAlloc failed: {}", get_error_msg());
 #else
-    // const int ret = mprotect(state.memory.get(), state.page_size, PROT_NONE);
-    // LOG_CRITICAL_IF(ret == -1, "mprotect failed: {}", get_error_msg());
+    const int ret = mprotect(state.memory.get(), state.page_size, PROT_NONE);
+    LOG_CRITICAL_IF(ret == -1, "mprotect failed: {}", get_error_msg());
 #endif
-
-    state.use_page_table = use_page_table;
-    if (use_page_table) {
-        state.page_table = PageTable(new PagePtr[TOTAL_MEM_SIZE / KiB(4)]);
-        // we use an absolute offset (it is faster), so each entry is the same
-        std::fill_n(state.page_table.get(), TOTAL_MEM_SIZE / KiB(4), state.memory.get());
-    }
 
     state.use_page_table = use_page_table;
     if (use_page_table) {
@@ -141,7 +132,7 @@ bool init(MemState &state, const bool use_page_table) {
 
 static void delete_memory(uint8_t *memory) {
     if (memory != nullptr) {
-#ifdef WIN32
+#ifdef _WIN32
         const BOOL ret = VirtualFree(memory, 0, MEM_RELEASE);
         assert(ret);
 #else
@@ -179,7 +170,7 @@ static Address alloc_inner(MemState &state, uint32_t start_page, int page_count,
     uint8_t *const memory = &state.memory[addr];
 
     // Make memory chunk available to access
-#ifdef WIN32
+#ifdef _WIN32
     const void *const ret = VirtualAlloc(memory, size, MEM_COMMIT, PAGE_READWRITE);
     LOG_CRITICAL_IF(!ret, "VirtualAlloc failed: {}", get_error_msg());
 #else
@@ -236,7 +227,7 @@ void unprotect_inner(MemState &state, Address addr, uint32_t size) {
     }
     uint8_t *addr_ptr = state.use_page_table ? state.page_table[addr / KiB(4)] : state.memory.get();
 
-#ifdef WIN32
+#ifdef _WIN32
     DWORD old_protect = 0;
     const BOOL ret = VirtualProtect(&addr_ptr[addr], size - 1, PAGE_READWRITE, &old_protect);
     LOG_CRITICAL_IF(!ret, "VirtualAlloc failed: {}", get_error_msg());
@@ -249,7 +240,7 @@ void unprotect_inner(MemState &state, Address addr, uint32_t size) {
 void protect_inner(MemState &state, Address addr, uint32_t size, const MemPerm perm) {
     uint8_t *addr_ptr = state.use_page_table ? state.page_table[addr / KiB(4)] : state.memory.get();
 
-#ifdef WIN32
+#ifdef _WIN32
     DWORD old_protect = 0;
     const BOOL ret = VirtualProtect(&addr_ptr[addr], size - 1, (perm == MemPerm::None) ? PAGE_NOACCESS : ((perm == MemPerm::ReadOnly) ? PAGE_READONLY : PAGE_READWRITE), &old_protect);
     LOG_CRITICAL_IF(!ret, "VirtualAlloc failed: {}", get_error_msg());
@@ -292,7 +283,7 @@ bool handle_access_violation(MemState &state, uint8_t *addr, bool write) noexcep
     auto it = state.protect_tree.lower_bound(vaddr);
     if (it == state.protect_tree.end()) {
         // HACK: keep going
-        unprotect_inner(state, align_down(vaddr, state.page_size), state.page_size);
+        unprotect_inner(state, vaddr, 4);
         LOG_CRITICAL("Unhandled write protected region was valid. Address=0x{:X}", vaddr);
         return true;
     }
@@ -300,18 +291,44 @@ bool handle_access_violation(MemState &state, uint8_t *addr, bool write) noexcep
     ProtectSegmentInfo &info = it->second;
     if (vaddr < it->first || vaddr >= it->first + info.size) {
         // HACK: keep going
-        unprotect_inner(state, align_down(vaddr, state.page_size), state.page_size);
+        unprotect_inner(state, vaddr, 4);
         LOG_CRITICAL("Unhandled write protected region was valid. Address=0x{:X}", vaddr);
         return true;
     }
 
     Address previous_beg = it->first;
-    for (auto& [block_addr, block] : info.blocks) {
-        block.callback(vaddr, write);
+    for (auto ite = info.blocks.begin(); ite != info.blocks.end();) {
+        if (vaddr >= ite->first && vaddr < ite->first + ite->second.size && ite->second.callback(vaddr, write)) {
+            Address beg_unpr = align_down(ite->first, state.page_size);
+            Address end_unpr = align(ite->first + ite->second.size, state.page_size);
+            unprotect_inner(state, beg_unpr, end_unpr - beg_unpr);
+
+            ite = info.blocks.erase(ite);
+        } else {
+            ++ite;
+        }
     }
 
-    unprotect_inner(state, it->first, info.size);
-    state.protect_tree.erase(it);
+    if (info.blocks.empty() && info.ref_count == 0) {
+        unprotect_inner(state, it->first, info.size);
+        state.protect_tree.erase(it);
+    } else {
+        Address beg_region = info.blocks.begin()->first;
+        Address end_region = info.blocks.rbegin()->first + info.blocks.rbegin()->second.size;
+
+        beg_region = align_down(beg_region, state.page_size);
+        end_region = align(end_region, state.page_size);
+
+        if (beg_region != previous_beg) {
+            ProtectSegmentInfo new_info = std::move(info);
+            new_info.size = end_region - beg_region;
+
+            state.protect_tree.erase(it);
+            state.protect_tree.emplace(beg_region, std::move(new_info));
+        } else {
+            info.size = end_region - beg_region;
+        }
+    }
 
     return true;
 }
@@ -339,6 +356,7 @@ bool add_protect(MemState &state, Address addr, const uint32_t size, const MemPe
         const Address start = std::min(it->first, addr);
         protect.size = std::max(it->first + it->second.size, addr + protect.size) - start;
         addr = start;
+        protect.ref_count += it->second.ref_count; // Transfer access count to new block
         protect.blocks.merge(it->second.blocks); // transfer blocks to the new protect
 
         if (it == state.protect_tree.begin()) {
@@ -350,7 +368,9 @@ bool add_protect(MemState &state, Address addr, const uint32_t size, const MemPe
         state.protect_tree.erase(it--);
     }
 
-    protect_inner(state, addr, protect.size, perm);
+    if (protect.ref_count == 0) {
+        protect_inner(state, addr, protect.size, perm);
+    }
 
     state.protect_tree.emplace(addr, std::move(protect));
     return true;
@@ -370,10 +390,42 @@ bool is_protecting(MemState &state, Address addr, MemPerm *perm) {
     return false;
 }
 
+void open_access_parent_protect_segment(MemState &state, Address addr) {
+    const std::lock_guard<std::mutex> lock(state.protect_mutex);
+    auto ite = state.protect_tree.lower_bound(addr);
+
+    if (ite != state.protect_tree.end() && addr < ite->first + ite->second.size) {
+        ite->second.ref_count++;
+    } else {
+        ProtectSegmentInfo protect(0, MemPerm::ReadWrite);
+        protect.ref_count = 1;
+
+        state.protect_tree.emplace(align_down(addr, state.page_size), std::move(protect));
+    }
+}
+
+void close_access_parent_protect_segment(MemState &state, Address addr) {
+    const std::lock_guard<std::mutex> lock(state.protect_mutex);
+    auto ite = state.protect_tree.lower_bound(addr);
+
+    if (ite != state.protect_tree.end()) {
+        ProtectSegmentInfo &info = ite->second;
+        if (info.ref_count > 0) {
+            info.ref_count--;
+        }
+
+        if (info.ref_count == 0) {
+            if (info.blocks.empty() || info.size == 0) {
+                state.protect_tree.erase(ite);
+            } else {
+                protect_inner(state, ite->first, info.size, info.perm);
+            }
+        }
+    }
+}
+
 void add_external_mapping(MemState &mem, Address addr, uint32_t size, uint8_t *addr_ptr) {
     assert((size & 4095) == 0);
-    if (!mem.use_page_table)
-        return;
 
     uint64_t addr_value = std::bit_cast<uint64_t>(addr_ptr);
     uint8_t *page_table_entry = addr_ptr - addr;
@@ -393,19 +445,16 @@ void add_external_mapping(MemState &mem, Address addr, uint32_t size, uint8_t *a
     mem.external_mapping[addr_value] = { addr, size };
 }
 
-void remove_external_mapping(MemState &mem, uint8_t *addr_ptr, uint32_t size) {
+void remove_external_mapping(MemState &mem, uint8_t *addr_ptr) {
     uint64_t addr_value = std::bit_cast<uint64_t>(addr_ptr);
     MemExternalMapping mapping;
-    if(mem.use_page_table) {
+    {
         const std::unique_lock<std::mutex> lock(mem.protect_mutex);
         auto it = mem.external_mapping.find(addr_value);
         assert(it != mem.external_mapping.end());
 
         mapping = it->second;
         mem.external_mapping.erase(it);
-    } else {
-        mapping.address = static_cast<Address>(addr_ptr - mem.memory.get());
-        mapping.size = size;
     }
 
     // remove all protections on this range
@@ -430,16 +479,14 @@ void remove_external_mapping(MemState &mem, uint8_t *addr_ptr, uint32_t size) {
         }
     }
 
-    if (mem.use_page_table) {
-        // unprotect the original memory range
-        mem.page_table[mapping.address / KiB(4)] = mem.memory.get();
-        unprotect_inner(mem, mapping.address, mapping.size);
-        // copy back and reset the page table
-        for (int block = 0; block < mapping.size / KiB(4); block++) {
-            // this is not thread write safe, but hopefully not other thread is busy copying while this happens
-            memcpy(&mem.memory[mapping.address] + block * KiB(4), addr_ptr + block * KiB(4), KiB(4));
-            mem.page_table[mapping.address / KiB(4) + block] = mem.memory.get();
-        }
+    // unprotect the original memory range
+    mem.page_table[mapping.address / KiB(4)] = mem.memory.get();
+    unprotect_inner(mem, mapping.address, mapping.size);
+    // copy back and reset the page table
+    for (int block = 0; block < mapping.size / KiB(4); block++) {
+        // this is not thread write safe, but hopefully not other thread is busy copying while this happens
+        memcpy(&mem.memory[mapping.address] + block * KiB(4), addr_ptr + block * KiB(4), KiB(4));
+        mem.page_table[mapping.address / KiB(4) + block] = mem.memory.get();
     }
 }
 
@@ -496,7 +543,7 @@ void free(MemState &state, Address address) {
     assert(!state.use_page_table || state.page_table[address / KiB(4)] == state.memory.get());
     uint8_t *const memory = &state.memory[page_num * state.page_size];
 
-#ifdef WIN32
+#ifdef _WIN32
     const BOOL ret = VirtualFree(memory, page.size * state.page_size, MEM_DECOMMIT);
     LOG_CRITICAL_IF(!ret, "VirtualFree failed: {}", get_error_msg());
 #else
@@ -518,7 +565,7 @@ const char *mem_name(Address address, MemState &state) {
     return "";
 }
 
-#ifdef WIN32
+#ifdef _WIN32
 
 static LONG WINAPI exception_handler(PEXCEPTION_POINTERS pExp) noexcept {
     if (pExp->ExceptionRecord->ExceptionCode == EXCEPTION_BREAKPOINT && IsDebuggerPresent()) {

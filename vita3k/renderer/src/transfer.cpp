@@ -1,5 +1,5 @@
 // Vita3K emulator project
-// Copyright (C) 2024 Vita3K team
+// Copyright (C) 2025 Vita3K team
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -25,7 +25,6 @@
 #include <util/log.h>
 #include <util/tracy.h>
 
-#include <renderer/vulkan/functions.h>
 #include <renderer/vulkan/state.h>
 
 // keywords.h must be after tracy.h for msvc compiler
@@ -185,7 +184,7 @@ COMMAND(handle_transfer_copy) {
         delete[] images;
     };
 
-    if (renderer.current_backend == Backend::Vulkan && renderer.features.enable_memory_mapping && !renderer.disable_surface_sync) {
+    if (renderer.current_backend == Backend::Vulkan && renderer.features.support_memory_mapping && !renderer.disable_surface_sync) {
         if (dynamic_cast<vulkan::VKState &>(renderer).surface_cache.check_for_surface(mem, images[0].address.address(), copy_operation, images[1].address.address()))
             // let the vulkan surface cache handle it
             return;
@@ -278,7 +277,7 @@ COMMAND(handle_transfer_downscale) {
         delete dst;
     };
 
-    if (renderer.current_backend == Backend::Vulkan && renderer.features.enable_memory_mapping && !renderer.disable_surface_sync) {
+    if (renderer.current_backend == Backend::Vulkan && renderer.features.support_memory_mapping && !renderer.disable_surface_sync) {
         if (dynamic_cast<vulkan::VKState &>(renderer).surface_cache.check_for_surface(mem, src->address.address(), downscale_operation, dst->address.address()))
             // let the vulkan surface cache handle it
             return;

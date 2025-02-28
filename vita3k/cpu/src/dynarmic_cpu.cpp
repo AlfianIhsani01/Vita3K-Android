@@ -1,5 +1,5 @@
 // Vita3K emulator project
-// Copyright (C) 2024 Vita3K team
+// Copyright (C) 2025 Vita3K team
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -18,13 +18,17 @@
 #include "cpu/common.h"
 #include <cpu/impl/dynarmic_cpu.h>
 #include <cpu/state.h>
-#include <set>
 #include <util/bit_cast.h>
 #include <util/log.h>
 
 #include <mem/ptr.h>
 
-//#include <dynarmic/frontend/A32/a32_ir_emitter.h>
+#include <dynarmic/frontend/A32/a32_ir_emitter.h>
+#include <dynarmic/interface/A32/coprocessor.h>
+
+#include <memory>
+#include <optional>
+#include <string>
 
 class ArmDynarmicCP15 : public Dynarmic::A32::Coprocessor {
     uint32_t tpidruro;
@@ -118,7 +122,7 @@ public:
 
     void PreCodeTranslationHook(bool is_thumb, Dynarmic::A32::VAddr pc, Dynarmic::A32::IREmitter &ir) override {
         if (cpu->log_code) {
-            //ir.CallHostFunction(&TraceInstruction, ir.Imm64((uint64_t)this), ir.Imm64(pc), ir.Imm64(is_thumb));
+            ir.CallHostFunction(&TraceInstruction, ir.Imm64((uint64_t)this), ir.Imm64(pc), ir.Imm64(is_thumb));
         }
     }
 
@@ -309,7 +313,6 @@ std::unique_ptr<Dynarmic::A32::Jit> DynarmicCPU::make_jit() {
     config.coprocessors[15] = cp15;
     config.processor_id = core_id;
     config.optimizations = cpu_opt ? Dynarmic::all_safe_optimizations : Dynarmic::no_optimizations;
-    config.enable_cycle_counting = false;
 
     return std::make_unique<Dynarmic::A32::Jit>(config);
 }
@@ -331,11 +334,7 @@ int DynarmicCPU::run() {
     break_ = false;
     exit_request = false;
     parent->svc_called = false;
-    Dynarmic::HaltReason halt_reason;
-    do {
-        halt_reason = jit->Run();
-    } while (halt_reason == Dynarmic::HaltReason::Step || halt_reason == Dynarmic::HaltReason::CacheInvalidation);
-
+    jit->Run();
     return halted;
 }
 

@@ -1,5 +1,5 @@
 // Vita3K emulator project
-// Copyright (C) 2024 Vita3K team
+// Copyright (C) 2025 Vita3K team
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -25,14 +25,10 @@
 
 #include <cpu/functions.h>
 #include <mem/ptr.h>
-#include <util/align.h>
-#include <util/find.h>
+#include <util/lock_and_find.h>
 #include <util/log.h>
 
 #include <SDL_thread.h>
-
-#include <spdlog/fmt/fmt.h>
-#include <util/lock_and_find.h>
 
 int CorenumAllocator::new_corenum() {
     const std::lock_guard<std::mutex> guard(lock);
@@ -90,9 +86,7 @@ bool KernelState::init(MemState &mem, const CallImportFunc &call_import, CPUBack
     constexpr std::size_t MAX_CORE_COUNT = 150;
 
     corenum_allocator.set_max_core_count(MAX_CORE_COUNT);
-#ifdef USE_DYNARMIC
     exclusive_monitor = new_exclusive_monitor(MAX_CORE_COUNT);
-#endif
     start_tick = rtc_get_ticks(rtc_base_ticks());
     base_tick = { rtc_base_ticks() };
     cpu_protocol = std::make_unique<CPUProtocol>(*this, mem, call_import);
