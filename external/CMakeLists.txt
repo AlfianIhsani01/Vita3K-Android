@@ -93,6 +93,13 @@ target_include_directories(miniz PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/miniz")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/sdl2-cmake-scripts")
 
+if(ANDROID)
+	target_include_directories(sdl2 INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/sdl/android/include")
+	target_link_libraries(sdl2 INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/sdl/android/lib/${ANDROID_ABI}/libSDL2.a")
+	target_link_libraries(sdl2 INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/sdl/android/lib/${ANDROID_ABI}/libcpufeatures.a")
+	target_link_libraries(sdl2 INTERFACE GLESv1_CM GLESv2)
+else()
+
 if(APPLE)
 	set(SDL2_PATH "${CMAKE_CURRENT_SOURCE_DIR}/sdl/macos" CACHE PATH "Where SDL2 is located" FORCE)
 elseif(WIN32)
@@ -126,6 +133,9 @@ elseif (ARCHITECTURE STREQUAL "x86_64")
 		_USE_SSE2
 	)
 endif ()
+if(ANDROID)
+	add_subdirectory(libadrenotools)
+endif()
 
 if(WIN32)
 	add_library(winsock INTERFACE)
@@ -238,23 +248,37 @@ target_include_directories(CLI11 INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/cli11")
 add_library(vulkan INTERFACE)
 target_include_directories(vulkan INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
 if(APPLE)
-	if(NOT EXISTS "${CMAKE_BINARY_DIR}/external/MoltenVK-macos.tar")
-		message(STATUS "Downloading MoltenVK...")
-		file(DOWNLOAD https://github.com/KhronosGroup/MoltenVK/releases/download/v1.2.11-artifacts/MoltenVK-macos.tar
-			"${CMAKE_BINARY_DIR}/external/MoltenVK-macos.tar" SHOW_PROGRESS)
+	target_include_directories(vulkan INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/MoltenVK")
+elseif(ANDROID AND NOT (CMAKE_BUILD_TYPE STREQUAL "Release"))
+	# add validation layer
+	if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../android/prebuilt/${ANDROID_ABI}/libVkLayer_khronos_validation.so")
+		# download it if not already done
+		if(NOT EXISTS "${CMAKE_BINARY_DIR}/external/validation_layers.zip")
+			message(STATUS "Downloading validation layer...")
+			file(DOWNLOAD https://github.com/KhronosGroup/Vulkan-ValidationLayers/releases/download/sdk-1.3.250.0/android-binaries-1.3.250.0.zip
+				"${CMAKE_BINARY_DIR}/external/validation_layers.zip" SHOW_PROGRESS)
+		endif()
+
+		if(NOT EXISTS "${CMAKE_BINARY_DIR}/external/validation_layers")
+			file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/external/validation_layers")
+			execute_process(COMMAND ${CMAKE_COMMAND} -E tar xf "${CMAKE_BINARY_DIR}/external/validation_layers.zip"
+				WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/external/validation_layers")
+		endif()
+
+		file(COPY "${CMAKE_BINARY_DIR}/external/validation_layers/${ANDROID_ABI}" DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/../android/prebuilt")
 	endif()
-	if(NOT EXISTS "${CMAKE_BINARY_DIR}/external/MoltenVK")
-		execute_process(COMMAND tar xf "${CMAKE_BINARY_DIR}/external/MoltenVK-macos.tar" --strip-components=1 MoltenVK/MoltenVK 
-			WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/external")
-	endif()
-	target_include_directories(vulkan INTERFACE "${CMAKE_BINARY_DIR}/external/MoltenVK/include")
-	set(MOLTENVK_DYLIB "${CMAKE_BINARY_DIR}/external/MoltenVK/dylib/macOS/libMoltenVK.dylib" PARENT_SCOPE)
 endif()
 
 add_library(vma INTERFACE)
 target_include_directories(vma INTERFACE
 	"${CMAKE_CURRENT_SOURCE_DIR}/VulkanMemoryAllocator-Hpp/include"
 	"${CMAKE_CURRENT_SOURCE_DIR}/VulkanMemoryAllocator-Hpp/VulkanMemoryAllocator/include")
+if(ANDROID)
+	set(USE_STATIC_ANDROID_FFMPEG ON)
+	# if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../android/prebuilt/${ANDROID_ABI}/libavcodec.so")
+	# 	file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/ffmpeg/shared/android/${ANDROID_ABI}" DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/../android/prebuilt")
+	# endif()
+endif()
 
 add_subdirectory(ffmpeg)
 
@@ -390,44 +414,43 @@ if(XXH_X86DISPATCH_ALLOW_AVX)
 endif()
 
 # Tracy
-option(TRACY_ENABLE_ON_CORE_COMPONENTS
-	"Enable and require Tracy to compile core components such as the renderer, shader recompiler and
-		HLE modules"
-	ON)
-option(TRACY_NO_FRAME_IMAGE, ON)
-add_library(tracy STATIC tracy/public/TracyClient.cpp)
-target_include_directories(tracy SYSTEM PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/tracy/public>)
-target_link_libraries(tracy PUBLIC ${CMAKE_DL_LIBS})
-if(WIN32)
-	target_link_libraries(tracy PRIVATE Dbghelp)
+if(NOT (CMAKE_BUILD_TYPE STREQUAL "Release"))
+	option(TRACY_ENABLE_ON_CORE_COMPONENTS
+		"Enable and require Tracy to compile core components such as the renderer, shader recompiler and
+			HLE modules"
+		ON)
+	option(TRACY_NO_FRAME_IMAGE, ON)
+
+	add_library(tracy STATIC tracy/public/TracyClient.cpp)
+	target_include_directories(tracy SYSTEM PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/tracy/public>)
+	target_link_libraries(tracy PUBLIC ${CMAKE_DL_LIBS})
+
+	if(UNIX AND NOT ANDROID)
+		target_link_libraries(tracy PUBLIC pthread)
+	endif()
+
+	# Enable Tracy on-demand profiling mode to avoid unnecessary memory usage when the developer
+	# isn't profiling by only enabling profiling after a connection has been established with
+	# a Tracy server
+	target_compile_definitions(tracy PUBLIC $<$<CONFIG:Debug,RelWithDebInfo>:TRACY_ON_DEMAND>)
+
+	# Disable Tracy automated data collection in order to prevent Tracy-related code from being profiled
+	target_compile_definitions(tracy PUBLIC TRACY_NO_SYSTEM_TRACING)
+
+	# Defining TRACY_ENABLE for both compiling Tracy and compiling the project that links
+	# against it is needed for Tracy to work
+	#
+	# -------------------------- Options (choose one at a time) ---------------------------
+	#
+	# A (DEFAULT). Enable Tracy on any target that links against if the build configuration
+	# is either Debug and RelWithDebInfo
+	#
+	# Using generator expresions instead of a conditional with CMAKE_BUILD_TYPE is needed
+	# in order for the condition to work properly on both single-config and multi-config
+	# CMake project generators. More info here:
+	# https://cmake.org/cmake/help/latest/manual/cmake-buildsystem.7.html#build-configurations
+	target_compile_definitions(tracy PUBLIC $<$<CONFIG:Debug,RelWithDebInfo>:TRACY_ENABLE>)
 endif()
-
-if(UNIX)
-	target_link_libraries(tracy PUBLIC pthread)
-endif()
-
-# Enable Tracy on-demand profiling mode to avoid unnecessary memory usage when the developer
-# isn't profiling by only enabling profiling after a connection has been established with
-# a Tracy server
-target_compile_definitions(tracy PUBLIC $<$<CONFIG:Debug,RelWithDebInfo>:TRACY_ON_DEMAND>)
-
-# Disable Tracy automated data collection in order to prevent Tracy-related code from being profiled
-target_compile_definitions(tracy PUBLIC TRACY_NO_SYSTEM_TRACING)
-
-# Defining TRACY_ENABLE for both compiling Tracy and compiling the project that links
-# against it is needed for Tracy to work
-#
-# -------------------------- Options (choose one at a time) ---------------------------
-#
-# A (DEFAULT). Enable Tracy on any target that links against if the build configuration
-# is either Debug and RelWithDebInfo
-#
-# Using generator expresions instead of a conditional with CMAKE_BUILD_TYPE is needed
-# in order for the condition to work properly on both single-config and multi-config
-# CMake project generators. More info here:
-# https://cmake.org/cmake/help/latest/manual/cmake-buildsystem.7.html#build-configurations
-target_compile_definitions(tracy PUBLIC $<$<CONFIG:Debug,RelWithDebInfo>:TRACY_ENABLE>)
-
 #
 # ----------------------------------------------------------------------------------------
 #
@@ -439,8 +462,10 @@ target_compile_definitions(tracy PUBLIC $<$<CONFIG:Debug,RelWithDebInfo>:TRACY_E
 # Use XDG desktop portals on Linux
 set(NFD_PORTAL ON)
 
-# nativefiledialog-extended
-add_subdirectory(nativefiledialog-extended)
+if(NOT ANDROID)
+	# nativefiledialog-extended
+	add_subdirectory(nativefiledialog-extended)
 
-# Create alias to prevent the need of multiple changes in case the target name changes
-add_library(NFDe::NFDe ALIAS nfd)
+	# Create alias to prevent the need of multiple changes in case the target name changes
+	add_library(NFDe::NFDe ALIAS nfd)
+endif()
