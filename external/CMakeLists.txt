@@ -6,24 +6,24 @@ include(${CMAKE_ROOT}/Modules/ExternalProject.cmake)
 set(CMAKE_POLICY_DEFAULT_CMP0077 "NEW")
 
 function(check_submodules_present)
-	file(READ "${CMAKE_SOURCE_DIR}/.gitmodules" gitmodules)
-	string(REGEX MATCHALL "path *= *[^ \t\r\n]*" gitmodules ${gitmodules})
+        file(READ "${CMAKE_SOURCE_DIR}/.gitmodules" gitmodules)
+        string(REGEX MATCHALL "path *= *[^ \t\r\n]*" gitmodules ${gitmodules})
 
-	foreach(module ${gitmodules})
-		# Get module name
-		string(REGEX REPLACE "path *= *" "" module ${module})
+        foreach(module ${gitmodules})
+                # Get module name
+                string(REGEX REPLACE "path *= *" "" module ${module})
 
-		# Stat the folder and get amount of entries
-		file(GLOB RESULT "${CMAKE_SOURCE_DIR}/${module}/*")
-		list(LENGTH RESULT RES_LEN)
+                # Stat the folder and get amount of entries
+                file(GLOB RESULT "${CMAKE_SOURCE_DIR}/${module}/*")
+                list(LENGTH RESULT RES_LEN)
 
-		# If the module has no files, bring fatal error
-		if(RES_LEN EQUAL 0)
-			# directory is empty
-			message(FATAL_ERROR "Submodule ${module} is empty. "
-				"Please run: git submodule update --init --recursive")
-		endif()
-	endforeach()
+                # If the module has no files, bring fatal error
+                if(RES_LEN EQUAL 0)
+                        # directory is empty
+                        message(FATAL_ERROR "Submodule ${module} is empty. "
+                                "Please run: git submodule update --init --recursive")
+                endif()
+        endforeach()
 endfunction()
 
 check_submodules_present()
@@ -42,7 +42,7 @@ add_subdirectory(capstone EXCLUDE_FROM_ALL)
 add_library(dirent INTERFACE)
 
 if(WIN32)
-	target_include_directories(dirent INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/dirent/include")
+        target_include_directories(dirent INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/dirent/include")
 endif()
 
 add_library(printf INTERFACE)
@@ -87,28 +87,28 @@ add_subdirectory(libfat16)
 add_library(imgui STATIC imgui/imgui.cpp imgui/imgui_draw.cpp imgui/imgui_tables.cpp imgui/imgui_widgets.cpp imgui/misc/cpp/imgui_stdlib.cpp)
 target_compile_definitions(imgui PRIVATE IMGUI_DISABLE_DEMO_WINDOWS)
 target_include_directories(imgui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/imgui"
-	"${CMAKE_CURRENT_SOURCE_DIR}/imgui_club/imgui_memory_editor/")
+        "${CMAKE_CURRENT_SOURCE_DIR}/imgui_club/imgui_memory_editor/")
 
 add_library(miniz STATIC miniz/miniz.c miniz/miniz.h)
 target_include_directories(miniz PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/miniz")
 
 add_library(sdl2 INTERFACE)
 if(ANDROID)
-	target_include_directories(sdl2 INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/sdl/android/include")
-	target_link_libraries(sdl2 INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/sdl/android/lib/${ANDROID_ABI}/libSDL2.a")
-	target_link_libraries(sdl2 INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/sdl/android/lib/${ANDROID_ABI}/libcpufeatures.a")
-	target_link_libraries(sdl2 INTERFACE GLESv1_CM GLESv2)
+        target_include_directories(sdl2 INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/sdl/android/include")
+        target_link_libraries(sdl2 INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/sdl/android/lib/${ANDROID_ABI}/libSDL2.a")
+        target_link_libraries(sdl2 INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/sdl/android/lib/${ANDROID_ABI}/libcpufeatures.a")
+        target_link_libraries(sdl2 INTERFACE GLESv1_CM GLESv2)
 else()
-	set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/sdl2-cmake-scripts")
-	if(APPLE)
-		set(SDL2_PATH "${CMAKE_CURRENT_SOURCE_DIR}/sdl/macos" CACHE PATH "Where SDL2 is located" FORCE)
-	elseif(WIN32)
-		set(SDL2_PATH "${CMAKE_CURRENT_SOURCE_DIR}/sdl/windows" CACHE PATH "Where SDL2 is located" FORCE)
-		set(SDL2_INCLUDE_DIR "${SDL2_PATH}/include" CACHE PATH "Where the SDL2 include files can be found" FORCE)
-	endif()
-	find_package(SDL2 REQUIRED)
-	target_include_directories(sdl2 INTERFACE "${SDL2_INCLUDE_DIR}")
-	target_link_libraries(sdl2 INTERFACE "${SDL2_LIBRARY}")
+        set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/sdl2-cmake-scripts")
+        if(APPLE)
+                set(SDL2_PATH "${CMAKE_CURRENT_SOURCE_DIR}/sdl/macos" CACHE PATH "Where SDL2 is located" FORCE)
+        elseif(WIN32)
+                set(SDL2_PATH "${CMAKE_CURRENT_SOURCE_DIR}/sdl/windows" CACHE PATH "Where SDL2 is located" FORCE)
+                set(SDL2_INCLUDE_DIR "${SDL2_PATH}/include" CACHE PATH "Where the SDL2 include files can be found" FORCE)
+        endif()
+        find_package(SDL2 REQUIRED)
+        target_include_directories(sdl2 INTERFACE "${SDL2_INCLUDE_DIR}")
+        target_link_libraries(sdl2 INTERFACE "${SDL2_LIBRARY}")
 endif()
 
 # Cubeb setup, from https://github.com/RPCS3/rpcs3/blob/master/3rdparty/cubeb/CMakeLists.txt
@@ -123,46 +123,46 @@ set(USE_SANITIZERS FALSE CACHE BOOL "Dont't use sanitizers")
 add_subdirectory(cubeb EXCLUDE_FROM_ALL)
 
 if (ARCHITECTURE STREQUAL "arm64")
-	target_compile_definitions(speex PUBLIC
-		#_USE_NEON
-	)
+        target_compile_definitions(speex PUBLIC
+                #_USE_NEON
+        )
 elseif (ARCHITECTURE STREQUAL "x86_64")
-	target_compile_definitions(speex PUBLIC
-		_USE_SSE
-		_USE_SSE2
-	)
+        target_compile_definitions(speex PUBLIC
+                _USE_SSE
+                _USE_SSE2
+        )
 endif ()
 
 if(ANDROID)
-	add_subdirectory(libadrenotools)
+        add_subdirectory(libadrenotools)
 endif()
 
 if(WIN32)
-	add_library(winsock INTERFACE)
-	find_library(WSOCK32 wsock32)
-	find_library(WS2_32 ws2_32)
-	find_library(IPHLPAPI iphlpapi)
-	target_link_libraries(winsock INTERFACE WSOCK32 WS2_32 IPHLPAPI)
+        add_library(winsock INTERFACE)
+        find_library(WSOCK32 wsock32)
+        find_library(WS2_32 ws2_32)
+        find_library(IPHLPAPI iphlpapi)
+        target_link_libraries(winsock INTERFACE WSOCK32 WS2_32 IPHLPAPI)
 endif()
 
 if(USE_UNICORN)
-	set(UNICORN_ARCH "arm")
-	add_subdirectory(unicorn EXCLUDE_FROM_ALL)
+        set(UNICORN_ARCH "arm")
+        add_subdirectory(unicorn EXCLUDE_FROM_ALL)
 endif()
 
 if(USE_DYNARMIC)
-	set(DYNARMIC_TESTS OFF CACHE BOOL "")
-	set(DYNARMIC_NO_BUNDLED_FMT ON CACHE BOOL "")
-	set(DYNARMIC_FRONTENDS "A32" CACHE STRING "")
-	add_subdirectory(dynarmic)
+        set(DYNARMIC_TESTS OFF CACHE BOOL "")
+        set(DYNARMIC_NO_BUNDLED_FMT ON CACHE BOOL "")
+        set(DYNARMIC_FRONTENDS "A32" CACHE STRING "")
+        add_subdirectory(dynarmic)
 
-	if(MSVC)
-		if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-			get_target_property(MCL_COMPILE_OPTIONS mcl COMPILE_OPTIONS)
-			list(REMOVE_ITEM MCL_COMPILE_OPTIONS /std:c++latest)
-			set_property(TARGET mcl PROPERTY COMPILE_OPTIONS ${MCL_COMPILE_OPTIONS})
-		endif()
-	endif()
+        if(MSVC)
+                if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+                        get_target_property(MCL_COMPILE_OPTIONS mcl COMPILE_OPTIONS)
+                        list(REMOVE_ITEM MCL_COMPILE_OPTIONS /std:c++latest)
+                        set_property(TARGET mcl PROPERTY COMPILE_OPTIONS ${MCL_COMPILE_OPTIONS})
+                endif()
+        endif()
 endif()
 
 add_library(vita-toolchain INTERFACE)
@@ -173,12 +173,12 @@ option(YAML_CPP_BUILD_CONTRIB "Enable contrib stuff in library" OFF)
 add_subdirectory(yaml-cpp EXCLUDE_FROM_ALL)
 
 if(USE_DISCORD_RICH_PRESENCE)
-	if(NOT EXISTS "${CMAKE_BINARY_DIR}/external/discord_game_sdk.zip")
-		message(STATUS "Downloading discord gamesdk...")
-		file(DOWNLOAD https://dl-game-sdk.discordapp.net/latest/discord_game_sdk.zip
-			"${CMAKE_BINARY_DIR}/external/discord_game_sdk.zip" SHOW_PROGRESS)
-	endif()
-	
+        if(NOT EXISTS "${CMAKE_BINARY_DIR}/external/discord_game_sdk.zip")
+                message(STATUS "Downloading discord gamesdk...")
+                file(DOWNLOAD https://dl-game-sdk.discordapp.net/latest/discord_game_sdk.zip
+                        "${CMAKE_BINARY_DIR}/external/discord_game_sdk.zip" SHOW_PROGRESS)
+        endif()
+
   if(NOT EXISTS "${CMAKE_BINARY_DIR}/external/discord_game_sdk")
     file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/external/discord_game_sdk")
     execute_process(COMMAND ${CMAKE_COMMAND} -E tar xf "${CMAKE_BINARY_DIR}/external/discord_game_sdk.zip"
@@ -187,35 +187,35 @@ if(USE_DISCORD_RICH_PRESENCE)
       "${CMAKE_BINARY_DIR}/external/discord_game_sdk/lib/x86_64/libdiscord_game_sdk.so")
   endif()
 
-	add_library(discord-rpc STATIC
-		${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/achievement_manager.cpp
-		${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/activity_manager.cpp
-		${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/application_manager.cpp
-		${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/core.cpp
-		${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/image_manager.cpp
-		${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/lobby_manager.cpp
-		${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/network_manager.cpp
-		${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/overlay_manager.cpp
-		${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/relationship_manager.cpp
-		${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/storage_manager.cpp
-		${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/store_manager.cpp
-		${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/types.cpp
-		${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/user_manager.cpp
-		${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/voice_manager.cpp)
+        add_library(discord-rpc STATIC
+                ${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/achievement_manager.cpp
+                ${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/activity_manager.cpp
+                ${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/application_manager.cpp
+                ${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/core.cpp
+                ${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/image_manager.cpp
+                ${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/lobby_manager.cpp
+                ${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/network_manager.cpp
+                ${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/overlay_manager.cpp
+                ${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/relationship_manager.cpp
+                ${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/storage_manager.cpp
+                ${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/store_manager.cpp
+                ${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/types.cpp
+                ${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/user_manager.cpp
+                ${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp/voice_manager.cpp)
 
-	if(APPLE)
-		if(ARCHITECTURE STREQUAL "x86_64")
-			target_link_libraries(discord-rpc PUBLIC "${CMAKE_BINARY_DIR}/external/discord_game_sdk/lib/x86_64/discord_game_sdk.dylib")
-		else()
-			target_link_libraries(discord-rpc PUBLIC "${CMAKE_BINARY_DIR}/external/discord_game_sdk/lib/aarch64/discord_game_sdk.dylib")
-		endif()
-	elseif(WIN32)
-		target_link_libraries(discord-rpc PUBLIC "${CMAKE_BINARY_DIR}/external/discord_game_sdk/lib/x86_64/discord_game_sdk.dll.lib")
-	elseif(UNIX)
-		target_link_libraries(discord-rpc PUBLIC "${CMAKE_BINARY_DIR}/external/discord_game_sdk/lib/x86_64/libdiscord_game_sdk.so")
-	endif()
+        if(APPLE)
+                if(ARCHITECTURE STREQUAL "x86_64")
+                        target_link_libraries(discord-rpc PUBLIC "${CMAKE_BINARY_DIR}/external/discord_game_sdk/lib/x86_64/discord_game_sdk.dylib")
+                else()
+                        target_link_libraries(discord-rpc PUBLIC "${CMAKE_BINARY_DIR}/external/discord_game_sdk/lib/aarch64/discord_game_sdk.dylib")
+                endif()
+        elseif(WIN32)
+                target_link_libraries(discord-rpc PUBLIC "${CMAKE_BINARY_DIR}/external/discord_game_sdk/lib/x86_64/discord_game_sdk.dll.lib")
+        elseif(UNIX)
+                target_link_libraries(discord-rpc PUBLIC "${CMAKE_BINARY_DIR}/external/discord_game_sdk/lib/x86_64/libdiscord_game_sdk.so")
+        endif()
 
-	target_include_directories(discord-rpc PUBLIC "${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp")
+        target_include_directories(discord-rpc PUBLIC "${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp")
 endif()
 
 option(BUILD_EXTERNAL "Build external dependencies in /External" OFF)
@@ -250,78 +250,78 @@ target_include_directories(CLI11 INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/cli11")
 add_library(vulkan INTERFACE)
 target_include_directories(vulkan INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
 if(APPLE)
-	target_include_directories(vulkan INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/MoltenVK")
+        target_include_directories(vulkan INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/MoltenVK")
 elseif(ANDROID AND NOT (CMAKE_BUILD_TYPE STREQUAL "Release"))
-	# add validation layer
-	if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../android/prebuilt/${ANDROID_ABI}/libVkLayer_khronos_validation.so")
-		# download it if not already done
-		if(NOT EXISTS "${CMAKE_BINARY_DIR}/external/validation_layers.zip")
-			message(STATUS "Downloading validation layer...")
-			file(DOWNLOAD https://github.com/KhronosGroup/Vulkan-ValidationLayers/releases/download/sdk-1.3.250.0/android-binaries-1.3.250.0.zip
-				"${CMAKE_BINARY_DIR}/external/validation_layers.zip" SHOW_PROGRESS)
-		endif()
+        # add validation layer
+        if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../android/prebuilt/${ANDROID_ABI}/libVkLayer_khronos_validation.so")
+                # download it if not already done
+                if(NOT EXISTS "${CMAKE_BINARY_DIR}/external/validation_layers.zip")
+                        message(STATUS "Downloading validation layer...")
+                        file(DOWNLOAD https://github.com/KhronosGroup/Vulkan-ValidationLayers/releases/download/sdk-1.3.250.0/android-binaries-1.3.250.0.zip
+                                "${CMAKE_BINARY_DIR}/external/validation_layers.zip" SHOW_PROGRESS)
+                endif()
 
-		if(NOT EXISTS "${CMAKE_BINARY_DIR}/external/validation_layers")
-			file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/external/validation_layers")
-			execute_process(COMMAND ${CMAKE_COMMAND} -E tar xf "${CMAKE_BINARY_DIR}/external/validation_layers.zip"
-				WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/external/validation_layers")
-		endif()
+                if(NOT EXISTS "${CMAKE_BINARY_DIR}/external/validation_layers")
+                        file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/external/validation_layers")
+                        execute_process(COMMAND ${CMAKE_COMMAND} -E tar xf "${CMAKE_BINARY_DIR}/external/validation_layers.zip"
+                                WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/external/validation_layers")
+                endif()
 
-		file(COPY "${CMAKE_BINARY_DIR}/external/validation_layers/${ANDROID_ABI}" DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/../android/prebuilt")
-	endif()
+                file(COPY "${CMAKE_BINARY_DIR}/external/validation_layers/${ANDROID_ABI}" DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/../android/prebuilt")
+        endif()
 endif()
 
 add_library(vma INTERFACE)
 target_include_directories(vma INTERFACE
-	"${CMAKE_CURRENT_SOURCE_DIR}/VulkanMemoryAllocator-Hpp/include"
-	"${CMAKE_CURRENT_SOURCE_DIR}/VulkanMemoryAllocator-Hpp/VulkanMemoryAllocator/include")
+        "${CMAKE_CURRENT_SOURCE_DIR}/VulkanMemoryAllocator-Hpp/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}/VulkanMemoryAllocator-Hpp/VulkanMemoryAllocator/include")
 
 if(ANDROID)
-	set(USE_STATIC_ANDROID_FFMPEG ON)
-	# if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../android/prebuilt/${ANDROID_ABI}/libavcodec.so")
-	# 	file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/ffmpeg/shared/android/${ANDROID_ABI}" DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/../android/prebuilt")
-	# endif()
+        set(USE_STATIC_ANDROID_FFMPEG ON)
+        # if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../android/prebuilt/${ANDROID_ABI}/libavcodec.so")
+        #         file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/ffmpeg/shared/android/${ANDROID_ABI}" DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/../android/prebuilt")
+        # endif()
 endif()
 add_subdirectory(ffmpeg)
 
 if(APPLE)
- 	execute_process(
- 		COMMAND brew --prefix openssl
- 		RESULT_VARIABLE BREW_RESULT
- 		OUTPUT_VARIABLE BREW_OPENSSL
- 		OUTPUT_STRIP_TRAILING_WHITESPACE
- 	)
- 	if(BREW_RESULT EQUAL 0)
- 		set(OPENSSL_ROOT_DIR "${BREW_OPENSSL}")
-		set(OPENSSL_USE_STATIC_LIBS TRUE)
- 	else()
-		message(FATAL_ERROR "Cannot locate OpenSSL directory\nPlease run: brew install openssl")
-	endif()
+         execute_process(
+                 COMMAND brew --prefix openssl
+                 RESULT_VARIABLE BREW_RESULT
+                 OUTPUT_VARIABLE BREW_OPENSSL
+                 OUTPUT_STRIP_TRAILING_WHITESPACE
+         )
+         if(BREW_RESULT EQUAL 0)
+                 set(OPENSSL_ROOT_DIR "${BREW_OPENSSL}")
+                set(OPENSSL_USE_STATIC_LIBS TRUE)
+         else()
+                message(FATAL_ERROR "Cannot locate OpenSSL directory\nPlease run: brew install openssl")
+        endif()
 endif()
 
 
 
 find_package(OpenSSL QUIET)
 if(NOT OPENSSL_FOUND)
-	if(MSVC)
-		message("OpenSSL not found, using prebuilt version")
+        if(MSVC)
+                message("OpenSSL not found, using prebuilt version")
 
-		if(NOT EXISTS "${CMAKE_BINARY_DIR}/external/openssl.zip")
-			message(STATUS "Downloading openssl...")
-			file(DOWNLOAD https://firedaemon.com/download-firedaemon-openssl-3.1-zip
-				"${CMAKE_BINARY_DIR}/external/openssl.zip" SHOW_PROGRESS)
-		endif()
+                if(NOT EXISTS "${CMAKE_BINARY_DIR}/external/openssl.zip")
+                        message(STATUS "Downloading openssl...")
+                        file(DOWNLOAD https://firedaemon.com/download-firedaemon-openssl-3.1-zip
+                                "${CMAKE_BINARY_DIR}/external/openssl.zip" SHOW_PROGRESS)
+                endif()
 
-		if(NOT EXISTS "${CMAKE_BINARY_DIR}/external/openssl")
-			file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/external/openssl")
-			execute_process(COMMAND ${CMAKE_COMMAND} -E tar xf "${CMAKE_BINARY_DIR}/external/openssl.zip"
-				WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/external/openssl")
-		endif()
+                if(NOT EXISTS "${CMAKE_BINARY_DIR}/external/openssl")
+                        file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/external/openssl")
+                        execute_process(COMMAND ${CMAKE_COMMAND} -E tar xf "${CMAKE_BINARY_DIR}/external/openssl.zip"
+                                WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/external/openssl")
+                endif()
 
-		set(OPENSSL_ROOT_DIR "${CMAKE_BINARY_DIR}/external/openssl/openssl-3.1/x64")
-	endif()
+                set(OPENSSL_ROOT_DIR "${CMAKE_BINARY_DIR}/external/openssl/openssl-3.1/x64")
+        endif()
 
-	find_package(OpenSSL REQUIRED)
+        find_package(OpenSSL REQUIRED)
 endif()
 
 message("OpenSSL include dir: ${OPENSSL_INCLUDE_DIR}")
@@ -337,32 +337,32 @@ add_subdirectory(psvpfstools)
 
 find_package(CURL QUIET)
 if(NOT CURL_FOUND)
-	message("System curl not found, compiling curl from source")
-	include(FetchContent)
-	option(HTTP_ONLY "disables all protocols except HTTP (This overrides all CURL_DISABLE_* options)" ON)
-	if(WIN32)
-		option(CURL_USE_SCHANNEL "Enable Windows native SSL/TLS" ON)
-	endif()
-	option(CURL_CA_FALLBACK "Set ON to use built-in CA store of TLS backend. Defaults to OFF" ON)
-	option(BUILD_CURL_EXE "Set to ON to build curl executable." OFF)
-	option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
-	option(BUILD_STATIC_LIBS "Build static libraries" ON)
-	option(CURL_DISABLE_INSTALL "Set to ON to disable instalation targets" ON)
-	set(CURL_DISABLE_TESTS 1)
-	FetchContent_Declare(curl
-		GIT_REPOSITORY https://github.com/curl/curl.git
-		GIT_TAG        7ab9d43720bc34d9aa351c7ca683c1668ebf8335 # release 8.1.2
-	)
-	FetchContent_MakeAvailable(curl)
+        message("System curl not found, compiling curl from source")
+        include(FetchContent)
+        option(HTTP_ONLY "disables all protocols except HTTP (This overrides all CURL_DISABLE_* options)" ON)
+        if(WIN32)
+                option(CURL_USE_SCHANNEL "Enable Windows native SSL/TLS" ON)
+        endif()
+        option(CURL_CA_FALLBACK "Set ON to use built-in CA store of TLS backend. Defaults to OFF" ON)
+        option(BUILD_CURL_EXE "Set to ON to build curl executable." OFF)
+        option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
+        option(BUILD_STATIC_LIBS "Build static libraries" ON)
+        option(CURL_DISABLE_INSTALL "Set to ON to disable instalation targets" ON)
+        set(CURL_DISABLE_TESTS 1)
+        FetchContent_Declare(curl
+                GIT_REPOSITORY https://github.com/curl/curl.git
+                GIT_TAG        7ab9d43720bc34d9aa351c7ca683c1668ebf8335 # release 8.1.2
+        )
+        FetchContent_MakeAvailable(curl)
 else()
-	add_library(libcurl INTERFACE)
-	target_link_libraries(libcurl INTERFACE CURL::libcurl)
+        add_library(libcurl INTERFACE)
+        target_link_libraries(libcurl INTERFACE CURL::libcurl)
 endif()
 
 
 file(GLOB LIBATRAC9_SOURCES
-	LibAtrac9/C/src/*.c
-	LibAtrac9/C/src/*.h
+        LibAtrac9/C/src/*.c
+        LibAtrac9/C/src/*.h
 )
 add_library(libatrac9 STATIC ${LIBATRAC9_SOURCES})
 
@@ -372,50 +372,50 @@ option(BUILD_SHARED_LIBS "Build shared library" OFF)
 option(XXHASH_BUILD_XXHSUM "Build the xxhsum binary" OFF)
 option(XXH_X86DISPATCH_ALLOW_AVX "Allow building XXH3 with AVX even if it crashes on SSE2-Only CPUs" OFF)
 if((NOT APPLE) AND (ARCHITECTURE STREQUAL "x86_64"))
-	set(DISPATCH 1)
+        set(DISPATCH 1)
 endif()
 add_subdirectory(xxHash/cmake_unofficial EXCLUDE_FROM_ALL)
 if(XXH_X86DISPATCH_ALLOW_AVX)
-	target_compile_definitions(xxhash PRIVATE XXH_X86DISPATCH_ALLOW_AVX)
+        target_compile_definitions(xxhash PRIVATE XXH_X86DISPATCH_ALLOW_AVX)
 endif()
 
 # Tracy
 if(NOT (CMAKE_BUILD_TYPE STREQUAL "Release"))
-	option(TRACY_ENABLE_ON_CORE_COMPONENTS
-		"Enable and require Tracy to compile core components such as the renderer, shader recompiler and
-			HLE modules"
-		ON)
-	option(TRACY_NO_FRAME_IMAGE, ON)
+        option(TRACY_ENABLE_ON_CORE_COMPONENTS
+                "Enable and require Tracy to compile core components such as the renderer, shader recompiler and
+                        HLE modules"
+                ON)
+        option(TRACY_NO_FRAME_IMAGE, ON)
 
-	add_library(tracy STATIC tracy/public/TracyClient.cpp)
-	target_include_directories(tracy SYSTEM PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/tracy/public>)
-	target_link_libraries(tracy PUBLIC ${CMAKE_DL_LIBS})
+        add_library(tracy STATIC tracy/public/TracyClient.cpp)
+        target_include_directories(tracy SYSTEM PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/tracy/public>)
+        target_link_libraries(tracy PUBLIC ${CMAKE_DL_LIBS})
 
-	if(UNIX AND NOT ANDROID)
-		target_link_libraries(tracy PUBLIC pthread)
-	endif()
+        if(UNIX AND NOT ANDROID)
+                target_link_libraries(tracy PUBLIC pthread)
+        endif()
 
-	# Enable Tracy on-demand profiling mode to avoid unnecessary memory usage when the developer
-	# isn't profiling by only enabling profiling after a connection has been established with
-	# a Tracy server
-	target_compile_definitions(tracy PUBLIC $<$<CONFIG:Debug,RelWithDebInfo>:TRACY_ON_DEMAND>)
+        # Enable Tracy on-demand profiling mode to avoid unnecessary memory usage when the developer
+        # isn't profiling by only enabling profiling after a connection has been established with
+        # a Tracy server
+        target_compile_definitions(tracy PUBLIC $<$<CONFIG:Debug,RelWithDebInfo>:TRACY_ON_DEMAND>)
 
-	# Disable Tracy automated data collection in order to prevent Tracy-related code from being profiled
-	target_compile_definitions(tracy PUBLIC TRACY_NO_SYSTEM_TRACING)
+        # Disable Tracy automated data collection in order to prevent Tracy-related code from being profiled
+        target_compile_definitions(tracy PUBLIC TRACY_NO_SYSTEM_TRACING)
 
-	# Defining TRACY_ENABLE for both compiling Tracy and compiling the project that links
-	# against it is needed for Tracy to work
-	#
-	# -------------------------- Options (choose one at a time) ---------------------------
-	#
-	# A (DEFAULT). Enable Tracy on any target that links against if the build configuration
-	# is either Debug and RelWithDebInfo
-	#
-	# Using generator expresions instead of a conditional with CMAKE_BUILD_TYPE is needed
-	# in order for the condition to work properly on both single-config and multi-config
-	# CMake project generators. More info here:
-	# https://cmake.org/cmake/help/latest/manual/cmake-buildsystem.7.html#build-configurations
-	target_compile_definitions(tracy PUBLIC $<$<CONFIG:Debug,RelWithDebInfo>:TRACY_ENABLE>)
+        # Defining TRACY_ENABLE for both compiling Tracy and compiling the project that links
+        # against it is needed for Tracy to work
+        #
+        # -------------------------- Options (choose one at a time) ---------------------------
+        #
+        # A (DEFAULT). Enable Tracy on any target that links against if the build configuration
+        # is either Debug and RelWithDebInfo
+        #
+        # Using generator expresions instead of a conditional with CMAKE_BUILD_TYPE is needed
+        # in order for the condition to work properly on both single-config and multi-config
+        # CMake project generators. More info here:
+        # https://cmake.org/cmake/help/latest/manual/cmake-buildsystem.7.html#build-configurations
+        target_compile_definitions(tracy PUBLIC $<$<CONFIG:Debug,RelWithDebInfo>:TRACY_ENABLE>)
 endif()
 
 #
@@ -430,9 +430,9 @@ endif()
 set(NFD_PORTAL ON)
 
 if(NOT ANDROID)
-	# nativefiledialog-extended
-	add_subdirectory(nativefiledialog-extended)
+        # nativefiledialog-extended
+        add_subdirectory(nativefiledialog-extended)
 
-	# Create alias to prevent the need of multiple changes in case the target name changes
-	add_library(NFDe::NFDe ALIAS nfd)
+        # Create alias to prevent the need of multiple changes in case the target name changes
+        add_library(NFDe::NFDe ALIAS nfd)
 endif()
